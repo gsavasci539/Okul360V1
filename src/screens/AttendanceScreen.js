@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
 } from 'react-native';
@@ -14,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 export default function AttendanceScreen({ navigation }) {
   const [classes, setClasses] = useState([]);
@@ -26,6 +26,25 @@ export default function AttendanceScreen({ navigation }) {
   const [attendance, setAttendance] = useState({});
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchClasses();
@@ -71,10 +90,10 @@ export default function AttendanceScreen({ navigation }) {
       }));
       await api.post('/attendance/bulk', { records: attendanceRecords });
       setModalVisible(false);
-      Alert.alert('Başarılı', 'Yoklama kaydedildi');
+      showAlert('Başarılı', 'Yoklama kaydedildi', 'success');
     } catch (error) {
       console.error('Save attendance error:', error);
-      Alert.alert('Hata', 'Yoklama kaydedilemedi');
+      showAlert('Hata', 'Yoklama kaydedilemedi', 'error');
     }
   };
 
@@ -113,7 +132,7 @@ export default function AttendanceScreen({ navigation }) {
           <Text style={styles.headerTitle}>Yoklama</Text>
           <TouchableOpacity
             style={styles.calendarButton}
-            onPress={() => Alert.alert('Tarih Seç', 'Tarih seçici yakında eklenecek')}
+            onPress={() => showAlert('Tarih Seç', 'Tarih seçici yakında eklenecek', 'info')}
           >
             <Ionicons name="calendar" size={responsiveIconSize(17)} color={colors.brand} />
             <Text style={styles.dateText}>{selectedDate}</Text>
@@ -158,7 +177,7 @@ export default function AttendanceScreen({ navigation }) {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={24} color={colors.ink} />
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Yoklama Al</Text>
             <TouchableOpacity onPress={saveAttendance}>
@@ -201,19 +220,19 @@ export default function AttendanceScreen({ navigation }) {
                       style={[styles.attendanceButton, attendance[student.id] === 'present' && styles.attendanceButtonActive]}
                       onPress={() => setAttendance({ ...attendance, [student.id]: 'present' })}
                     >
-                      <Ionicons name="checkmark" size={18} color={attendance[student.id] === 'present' ? colors.surface : colors.brand} />
+                      <Ionicons name="checkmark" size={responsiveIconSize(18)} color={attendance[student.id] === 'present' ? colors.surface : colors.brand} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.attendanceButton, attendance[student.id] === 'absent' && styles.attendanceButtonActiveAbsent]}
                       onPress={() => setAttendance({ ...attendance, [student.id]: 'absent' })}
                     >
-                      <Ionicons name="close" size={18} color={attendance[student.id] === 'absent' ? colors.surface : colors.danger} />
+                      <Ionicons name="close" size={responsiveIconSize(18)} color={attendance[student.id] === 'absent' ? colors.surface : colors.danger} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.attendanceButton, attendance[student.id] === 'late' && styles.attendanceButtonActiveLate]}
                       onPress={() => setAttendance({ ...attendance, [student.id]: 'late' })}
                     >
-                      <Ionicons name="time" size={18} color={attendance[student.id] === 'late' ? colors.surface : colors.warning} />
+                      <Ionicons name="time" size={responsiveIconSize(18)} color={attendance[student.id] === 'late' ? colors.surface : colors.warning} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -222,6 +241,16 @@ export default function AttendanceScreen({ navigation }) {
           </ScrollView>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -316,8 +345,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   classIcon: {
-    width: 38,
-    height: 38,
+    width: moderateScale(36),
+    height: moderateScale(36),
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -447,8 +476,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   attendanceButton: {
-    width: 40,
-    height: 40,
+    width: moderateScale(38),
+    height: moderateScale(38),
     borderRadius: borderRadius.lg,
     backgroundColor: colors.canvas,
     justifyContent: 'center',

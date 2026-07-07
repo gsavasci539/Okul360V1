@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale, moderateVerticalScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 export default function UsersScreen({ navigation }) {
   const [users, setUsers] = useState([]);
@@ -30,6 +31,25 @@ export default function UsersScreen({ navigation }) {
   });
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -79,22 +99,32 @@ export default function UsersScreen({ navigation }) {
       } else {
         await api.post('/users', formData);
       }
+      showAlert('Başarılı', 'Kaydedildi', 'success');
       setModalVisible(false);
       fetchUsers();
     } catch (error) {
       console.error('Save error:', error);
-      alert('Kaydedilemedi');
+      showAlert('Hata', 'Kaydedilemedi', 'error');
     }
   };
 
   const deleteUser = async (id) => {
-    try {
-      await api.delete(`/users/${id}`);
-      fetchUsers();
-    } catch (error) {
-      console.error('Delete error:', error);
-      alert('Silinemedi');
-    }
+    showAlert(
+      'Sil',
+      'Bu kullanıcıyı silmek istediğinizden emin misiniz?',
+      'danger',
+      async () => {
+        try {
+          await api.delete(`/users/${id}`);
+          showAlert('Başarılı', 'Silindi', 'success');
+          fetchUsers();
+        } catch (error) {
+          console.error('Delete error:', error);
+          showAlert('Hata', 'Silinemedi', 'error');
+        }
+      },
+      true
+    );
   };
 
   const toggleUserStatus = async (user) => {
@@ -270,6 +300,16 @@ export default function UsersScreen({ navigation }) {
           </ScrollView>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
       </View>
     </SafeAreaView>
   );
@@ -466,8 +506,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#e6f3ef',
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    width: moderateScale(22),
+    height: moderateScale(22),
     borderRadius: borderRadius.sm,
     backgroundColor: colors.canvas,
     borderWidth: 2,

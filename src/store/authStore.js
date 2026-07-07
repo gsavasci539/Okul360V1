@@ -40,12 +40,28 @@ const useAuthStore = create((set) => ({
       const token = await AsyncStorage.getItem('token');
       const refreshToken = await AsyncStorage.getItem('refreshToken');
       const userStr = await AsyncStorage.getItem('user');
-      const user = userStr && userStr !== 'undefined' ? JSON.parse(userStr) : null;
+      
+      let user = null;
+      if (userStr && userStr !== 'undefined' && userStr !== 'null') {
+        try {
+          user = JSON.parse(userStr);
+        } catch (parseError) {
+          console.error('JSON parse error for user data:', parseError);
+          // Clear corrupted data
+          await AsyncStorage.removeItem('user');
+        }
+      }
+      
       if (token && user) {
         set({ user, token, refreshToken, isAuthenticated: true });
+      } else {
+        // Clear invalid state
+        set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
       }
     } catch (error) {
       console.error('Load user storage error:', error);
+      // Reset to safe state on error
+      set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
     }
   },
 }));

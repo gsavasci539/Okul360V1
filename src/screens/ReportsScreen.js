@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateVerticalScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 const reportTabs = [
   { key: 'monthly-payments', label: 'Aylık Tahsilat' },
@@ -30,6 +31,25 @@ export default function ReportsScreen({ navigation }) {
   const [selectedBranch, setSelectedBranch] = useState('');
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchReportData();
@@ -77,10 +97,10 @@ export default function ReportsScreen({ navigation }) {
         },
         responseType: 'blob',
       });
-      alert(`${format.toUpperCase()} raporu indirildi`);
+      showAlert('Başarılı', `${format.toUpperCase()} raporu indirildi`, 'success');
     } catch (error) {
       console.error('Export error:', error);
-      alert('İndirme başarısız');
+      showAlert('Hata', 'İndirme başarısız', 'error');
     }
   };
 
@@ -258,6 +278,16 @@ export default function ReportsScreen({ navigation }) {
         {renderReportContent()}
       </ScrollView>
       </View>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -337,7 +367,7 @@ const styles = StyleSheet.create({
   filterSection: {
     padding: spacing.lg,
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
+    borderBottomWidth: moderateVerticalScale(1),
     borderBottomColor: colors.line,
   },
   filterLabel: {

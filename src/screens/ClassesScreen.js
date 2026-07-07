@@ -8,13 +8,13 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale, moderateVerticalScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 export default function ClassesScreen({ navigation }) {
   const [classes, setClasses] = useState([]);
@@ -23,6 +23,22 @@ export default function ClassesScreen({ navigation }) {
   const [selectedClass, setSelectedClass] = useState(null);
   const [students, setStudents] = useState([]);
   const [availableStudents, setAvailableStudents] = useState([]);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingClass, setEditingClass] = useState(null);
+  const [classFormData, setClassFormData] = useState({
+    name: '',
+    branch_name: '',
+    capacity: 30,
+  });
+  const [branches, setBranches] = useState([]);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
 
   // Ensure students is always an array
   const safeStudents = Array.isArray(students) ? students : [];
@@ -31,8 +47,20 @@ export default function ClassesScreen({ navigation }) {
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
 
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
+
   useEffect(() => {
     fetchClasses();
+    fetchBranches();
   }, []);
 
   const fetchClasses = async () => {
@@ -45,6 +73,17 @@ export default function ClassesScreen({ navigation }) {
       setClasses([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const response = await api.get('/branches');
+      const data = response.data?.items || response.data || [];
+      setBranches(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Branches error:', error);
+      setBranches([]);
     }
   };
 
@@ -74,7 +113,7 @@ export default function ClassesScreen({ navigation }) {
       setAvailableStudents(safeAvailableStudents.filter(s => s.id !== student.id));
     } catch (error) {
       console.error('Assign student error:', error);
-      Alert.alert('Hata', 'Öğrenci atanamadı');
+      showAlert('Hata', 'Öğrenci atanamadı', 'error');
     }
   };
 
@@ -85,8 +124,48 @@ export default function ClassesScreen({ navigation }) {
       setAvailableStudents([...safeAvailableStudents, student]);
     } catch (error) {
       console.error('Remove student error:', error);
-      Alert.alert('Hata', 'Öğrenci çıkarılamadı');
+      showAlert('Hata', 'Öğrenci çıkarılamadı', 'error');
     }
+  };
+
+  const openEditModal = (classItem = null) => {
+    setEditingClass(classItem);
+    setClassFormData(classItem || { name: '', branch_name: '', capacity: 30 });
+    setEditModalVisible(true);
+  };
+
+  const saveClass = async () => {
+    try {
+      if (editingClass) {
+        await api.put(`/classes/${editingClass.id}`, classFormData);
+      } else {
+        await api.post('/classes', classFormData);
+      }
+      setEditModalVisible(false);
+      fetchClasses();
+    } catch (error) {
+      console.error('Save class error:', error);
+      showAlert('Hata', 'Sınıf kaydedilemedi', 'error');
+    }
+  };
+
+  const deleteClass = async (classItem) => {
+    showAlert(
+      'Sınıfı Sil',
+      'Bu sınıfı silmek istediğinizden emin misiniz?',
+      'danger',
+      async () => {
+        try {
+          await api.delete(`/classes/${classItem.id}`);
+          showAlert('Başarılı', 'Sınıf silindi', 'success');
+          fetchClasses();
+        } catch (error) {
+          console.error('Delete class error:', error);
+          showAlert('Hata', 'Sınıf silinemedi', 'error');
+        }
+      },
+      true
+    );
   };
 
   const filteredAvailable = safeAvailableStudents.filter(s =>
@@ -105,8 +184,16 @@ export default function ClassesScreen({ navigation }) {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={[getResponsiveContainerStyle(), styles.content]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Sınıflar</Text>
-          <Text style={styles.headerSubtitle}>{classes.length} sınıf</Text>
+          <View>
+            <Text style={styles.headerTitle}>Sınıflar</Text>
+            <Text style={styles.headerSubtitle}>{classes.length} sınıf</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => openEditModal()}
+          >
+            <Ionicons name="add" size={responsiveIconSize(24)} color={colors.surface} />
+          </TouchableOpacity>
         </View>
 
         <ScrollView 
@@ -139,11 +226,78 @@ export default function ClassesScreen({ navigation }) {
                   <Text style={styles.statLabel}>Kapasite</Text>
                 </View>
               </View>
+              <View style={styles.classActions}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => openEditModal(classItem)}
+                >
+                  <Ionicons name="create-outline" size={responsiveIconSize(20)} color={colors.brand} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => deleteClass(classItem)}
+                >
+                  <Ionicons name="trash-outline" size={responsiveIconSize(20)} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
+      {/* Class Edit/Create Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{editingClass ? 'Sınıf Düzenle' : 'Yeni Sınıf'}</Text>
+            <TouchableOpacity onPress={saveClass}>
+              <Text style={styles.modalSave}>Kaydet</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Sınıf Adı</Text>
+              <TextInput
+                style={styles.formInput}
+                value={classFormData.name}
+                onChangeText={(text) => setClassFormData({ ...classFormData, name: text })}
+                placeholder="Örn: 10-A Sınıfı"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Şube</Text>
+              <TextInput
+                style={styles.formInput}
+                value={classFormData.branch_name}
+                onChangeText={(text) => setClassFormData({ ...classFormData, branch_name: text })}
+                placeholder="Örn: Merkez Şube"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Kapasite</Text>
+              <TextInput
+                style={styles.formInput}
+                value={classFormData.capacity?.toString()}
+                onChangeText={(text) => setClassFormData({ ...classFormData, capacity: parseInt(text) || 30 })}
+                placeholder="30"
+                keyboardType="number-pad"
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Student Assignment Modal */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -152,10 +306,10 @@ export default function ClassesScreen({ navigation }) {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={24} color={colors.ink} />
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>{selectedClass?.name}</Text>
-            <View style={{ width: 24 }} />
+            <View style={{ width: moderateScale(24) }} />
           </View>
 
           <View style={styles.modalContent}>
@@ -174,7 +328,7 @@ export default function ClassesScreen({ navigation }) {
                       <Text style={styles.studentName}>{student.full_name}</Text>
                       <Text style={styles.studentEmail}>{student.email}</Text>
                     </View>
-                    <Ionicons name="remove-circle-outline" size={24} color={colors.danger} />
+                    <Ionicons name="remove-circle-outline" size={responsiveIconSize(24)} color={colors.danger} />
                   </TouchableOpacity>
                 ))
               )}
@@ -201,7 +355,7 @@ export default function ClassesScreen({ navigation }) {
                       <Text style={styles.studentName}>{student.full_name}</Text>
                       <Text style={styles.studentEmail}>{student.email}</Text>
                     </View>
-                    <Ionicons name="add-circle-outline" size={24} color={colors.brand} />
+                    <Ionicons name="add-circle-outline" size={responsiveIconSize(24)} color={colors.brand} />
                   </TouchableOpacity>
                 ))
               )}
@@ -209,6 +363,16 @@ export default function ClassesScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -233,6 +397,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: spacing.xl,
     backgroundColor: colors.surface,
     ...shadows.small,
@@ -247,9 +414,14 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 4,
   },
-  content: {
-    flex: 1,
-    padding: spacing.lg,
+  addButton: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    backgroundColor: colors.brand,
+    borderRadius: borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.small,
   },
   classCard: {
     backgroundColor: colors.surface,
@@ -264,8 +436,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   classIcon: {
-    width: 48,
-    height: 48,
+    width: moderateScale(44),
+    height: moderateScale(44),
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -299,6 +471,21 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: fontSize.sm,
     color: colors.muted,
+  },
+  classActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  actionButton: {
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
   },
   modalContainer: {
     flex: 1,
@@ -367,5 +554,26 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     padding: spacing.xl,
+  },
+  formGroup: {
+    marginBottom: spacing.xl,
+  },
+  formLabel: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.ink,
+    marginBottom: spacing.sm,
+  },
+  formInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    fontSize: fontSize.md,
+    ...shadows.small,
+  },
+  modalSave: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.brand,
   },
 });

@@ -3,22 +3,26 @@ import { Dimensions, Platform, PixelRatio } from 'react-native';
 import { moderateScale, verticalScale, scale, moderateVerticalScale } from 'react-native-size-matters';
 
 const { width, height } = Dimensions.get('window');
+const pixelRatio = PixelRatio.get();
+const fontScale = PixelRatio.getFontScale();
 
-// Breakpoints for different screen sizes
+// Breakpoints for different screen sizes (more granular)
 export const breakpoints = {
-  phoneSmall: 320,
-  phone: 375,
-  phoneLarge: 414,
+  phoneSmall: 360,      // iPhone SE, small phones
+  phone: 390,           // iPhone 14, standard phones
+  phoneLarge: 414,      // iPhone 14 Pro Max, large phones
+  phoneExtraLarge: 428, // iPhone 14 Pro Max, Samsung A26
   tablet: 768,
   tabletLarge: 1024,
   desktop: 1280,
 };
 
-// Device type detection
+// Device type detection with more granular categories
 export const getDeviceType = () => {
   if (width >= breakpoints.tablet) {
     return width >= breakpoints.tabletLarge ? 'tabletLarge' : 'tablet';
   }
+  if (width >= breakpoints.phoneExtraLarge) return 'phoneExtraLarge';
   if (width >= breakpoints.phoneLarge) return 'phoneLarge';
   if (width >= breakpoints.phone) return 'phone';
   return 'phoneSmall';
@@ -31,6 +35,8 @@ export const getColumnCount = () => {
   
   if (deviceType === 'tabletLarge') return isLandscape ? 4 : 3;
   if (deviceType === 'tablet') return isLandscape ? 3 : 2;
+  if (deviceType === 'phoneExtraLarge') return isLandscape ? 3 : 2;
+  if (deviceType === 'phoneLarge') return isLandscape ? 2 : 2;
   return 2;
 };
 
@@ -47,13 +53,16 @@ export const responsiveSpacing = {
 export const responsiveFontSize = (size) => {
   const deviceType = getDeviceType();
   const scaleMultiplier = {
-    phoneSmall: 0.9,
-    phone: 1,
-    phoneLarge: 1.05,
+    phoneSmall: 0.85,
+    phone: 0.95,
+    phoneLarge: 1.0,
+    phoneExtraLarge: 1.05,
     tablet: 1.15,
     tabletLarge: 1.25,
   };
-  return moderateScale(size * (scaleMultiplier[deviceType] || 1));
+  // Adjust for font scale setting
+  const adjustedSize = size / fontScale;
+  return moderateScale(adjustedSize * (scaleMultiplier[deviceType] || 1));
 };
 
 // Responsive icon size
@@ -61,8 +70,9 @@ export const responsiveIconSize = (size) => {
   const deviceType = getDeviceType();
   const scaleMultiplier = {
     phoneSmall: 0.9,
-    phone: 1,
-    phoneLarge: 1.05,
+    phone: 0.95,
+    phoneLarge: 1.0,
+    phoneExtraLarge: 1.05,
     tablet: 1.2,
     tabletLarge: 1.3,
   };
@@ -74,8 +84,9 @@ export const responsiveRadius = (radius) => {
   const deviceType = getDeviceType();
   const scaleMultiplier = {
     phoneSmall: 0.9,
-    phone: 1,
-    phoneLarge: 1.05,
+    phone: 0.95,
+    phoneLarge: 1.0,
+    phoneExtraLarge: 1.05,
     tablet: 1.1,
     tabletLarge: 1.15,
   };
@@ -83,9 +94,10 @@ export const responsiveRadius = (radius) => {
 };
 
 // Calculate card width based on screen size and column count
-export const getCardWidth = (columnCount, padding = 16) => {
-  const totalPadding = padding * (columnCount + 1);
-  const availableWidth = width - totalPadding;
+export const getCardWidth = (columnCount, gap = 16, containerPadding = 16) => {
+  const totalContainerPadding = containerPadding * 2;
+  const totalGap = gap * (columnCount - 1);
+  const availableWidth = width - totalContainerPadding - totalGap;
   return availableWidth / columnCount;
 };
 
@@ -94,6 +106,7 @@ export const getMaxContentWidth = () => {
   const deviceType = getDeviceType();
   if (deviceType === 'tabletLarge') return 1400;
   if (deviceType === 'tablet') return 1200;
+  if (deviceType === 'phoneExtraLarge') return width;
   return width;
 };
 
@@ -102,9 +115,10 @@ export const getTabBarHeight = () => {
   const deviceType = getDeviceType();
   const baseHeight = 60;
   const scaleMultiplier = {
-    phoneSmall: 0.9,
-    phone: 1,
-    phoneLarge: 1.05,
+    phoneSmall: 0.85,
+    phone: 0.95,
+    phoneLarge: 1.0,
+    phoneExtraLarge: 1.05,
     tablet: 1.15,
     tabletLarge: 1.2,
   };

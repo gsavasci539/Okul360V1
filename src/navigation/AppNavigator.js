@@ -52,8 +52,10 @@ function MainTabs() {
 
   const getResponsiveTabBarHeight = () => {
     switch (deviceType) {
+      case 'phoneSmall': return 75;
       case 'phone': return 80;
-      case 'phoneLarge': return 90;
+      case 'phoneLarge': return 85;
+      case 'phoneExtraLarge': return 90;
       case 'tablet': return 100;
       case 'tabletLarge': return 110;
       default: return 80;
@@ -62,8 +64,10 @@ function MainTabs() {
 
   const getResponsiveIconSize = () => {
     switch (deviceType) {
+      case 'phoneSmall': return 26;
       case 'phone': return 28;
-      case 'phoneLarge': return 32;
+      case 'phoneLarge': return 30;
+      case 'phoneExtraLarge': return 32;
       case 'tablet': return 36;
       case 'tabletLarge': return 40;
       default: return 28;
@@ -72,8 +76,10 @@ function MainTabs() {
 
   const getResponsiveFontSize = () => {
     switch (deviceType) {
+      case 'phoneSmall': return 12;
       case 'phone': return 13;
       case 'phoneLarge': return 14;
+      case 'phoneExtraLarge': return 15;
       case 'tablet': return 15;
       case 'tabletLarge': return 16;
       default: return 13;
@@ -82,8 +88,10 @@ function MainTabs() {
 
   const getResponsivePadding = () => {
     switch (deviceType) {
+      case 'phoneSmall': return 10;
       case 'phone': return 12;
       case 'phoneLarge': return 14;
+      case 'phoneExtraLarge': return 16;
       case 'tablet': return 16;
       case 'tabletLarge': return 18;
       default: return 12;
@@ -133,7 +141,14 @@ export default function AppNavigator() {
   const loadUser = useAuthStore((state) => state.loadUser);
 
   React.useEffect(() => {
-    loadUser();
+    const initAuth = async () => {
+      try {
+        await loadUser();
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+      }
+    };
+    initAuth();
   }, []);
 
   return (

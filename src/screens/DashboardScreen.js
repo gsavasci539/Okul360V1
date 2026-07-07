@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,23 +14,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import useAuthStore from '../store/authStore';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { moderateScale, moderateVerticalScale } from 'react-native-size-matters';
-import {
-  getColumnCount,
-  getCardWidth,
-  getBottomPadding,
-  getTabBarHeight,
-  getResponsiveContainerStyle,
-  responsiveIconSize,
-  useResponsive,
-} from '../utils/responsive';
+import { moderateScale, moderateVerticalScale, getColumnCount, getCardWidth, getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
 
 export default function DashboardScreen({ navigation }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const user = useAuthStore((state) => state.user);
   const { width, columnCount, tabBarHeight, deviceType } = useResponsive();
-  const cardWidth = getCardWidth(columnCount, spacing.lg);
+  const cardWidth = getCardWidth(columnCount, spacing.lg, spacing.lg);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -47,29 +38,6 @@ export default function DashboardScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-  const StatCard = useCallback(({ icon, title, value, color, statBg, statInk, onPress }) => (
-    <TouchableOpacity 
-      style={[styles.statCard, { width: cardWidth }]} 
-      onPress={onPress}
-    >
-      <View style={[styles.statIcon, { backgroundColor: statBg }]}>
-        <Ionicons name={icon} size={responsiveIconSize(19)} color={statInk} />
-      </View>
-      <View style={styles.statContent}>
-        <Text style={styles.statLabel}>{title}</Text>
-        <Text style={styles.statValue}>{value || '—'}</Text>
-      </View>
-    </TouchableOpacity>
-  ), []);
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.loadingContainer} edges={['top', 'bottom']}>
-        <ActivityIndicator size="large" color={colors.brand} />
-      </SafeAreaView>
-    );
-  }
 
   const statCards = useMemo(() => [
     {
@@ -183,6 +151,14 @@ export default function DashboardScreen({ navigation }) {
 
   const bottomPadding = getBottomPadding(tabBarHeight);
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer} edges={['top', 'bottom']}>
+        <ActivityIndicator size="large" color={colors.brand} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView 
@@ -199,14 +175,18 @@ export default function DashboardScreen({ navigation }) {
           <FlatList
             data={statCards}
             renderItem={({ item }) => (
-              <StatCard
-                icon={item.icon}
-                title={item.title}
-                value={item.value}
-                statBg={item.statBg}
-                statInk={item.statInk}
+              <TouchableOpacity 
+                style={[styles.statCard, { width: cardWidth }]} 
                 onPress={item.onPress}
-              />
+              >
+                <View style={[styles.statIcon, { backgroundColor: item.statBg }]}>
+                  <Ionicons name={item.icon} size={responsiveIconSize(19)} color={item.statInk} />
+                </View>
+                <View style={styles.statContent}>
+                  <Text style={styles.statLabel}>{item.title}</Text>
+                  <Text style={styles.statValue}>{item.value || '—'}</Text>
+                </View>
+              </TouchableOpacity>
             )}
             keyExtractor={(item, index) => index.toString()}
             numColumns={columnCount}
@@ -284,13 +264,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xxxl,
     padding: spacing.lg,
-    minHeight: moderateVerticalScale(120),
+    minHeight: moderateVerticalScale(110),
     justifyContent: 'center',
     ...shadows.small,
   },
   statIcon: {
-    width: moderateScale(36),
-    height: moderateScale(36),
+    width: moderateScale(34),
+    height: moderateScale(34),
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -310,7 +290,7 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.extrabold,
     color: colors.ink,
     marginTop: spacing.xs,
-    lineHeight: moderateVerticalScale(32),
+    lineHeight: moderateVerticalScale(30),
   },
   section: {
     paddingVertical: spacing.xl,
@@ -332,12 +312,12 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: borderRadius.lg,
     backgroundColor: colors.surface,
-    minHeight: moderateVerticalScale(80),
+    minHeight: moderateVerticalScale(75),
     ...shadows.small,
   },
   quickIcon: {
-    width: moderateScale(36),
-    height: moderateScale(36),
+    width: moderateScale(34),
+    height: moderateScale(34),
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -351,7 +331,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   quickCopySubtitle: {
-    marginTop: 3,
+    marginTop: moderateScale(3),
     color: colors.muted,
     fontSize: fontSize.sm,
   },

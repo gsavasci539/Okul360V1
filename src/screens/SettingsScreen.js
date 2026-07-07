@@ -1,18 +1,21 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import useAuthStore from '../store/authStore';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 export default function SettingsScreen({ navigation }) {
   const user = useAuthStore((state) => state.user);
@@ -20,6 +23,32 @@ export default function SettingsScreen({ navigation }) {
   const logout = useAuthStore((state) => state.logout);
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [profileData, setProfileData] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+  });
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchUserProfile();
@@ -46,18 +75,29 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
-  const SettingItem = useCallback(({ icon, title, subtitle, onPress, color = colors.brand }) => (
-    <TouchableOpacity style={styles.settingItem} onPress={onPress}>
-      <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
-        <Ionicons name={icon} size={responsiveIconSize(19)} color={color} />
-      </View>
-      <View style={styles.settingInfo}>
-        <Text style={styles.settingTitle}>{title}</Text>
-        {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
-      </View>
-      <Ionicons name="chevron-forward" size={responsiveIconSize(18)} color={colors.muted} />
-    </TouchableOpacity>
-  ), []);
+  const openProfileModal = () => {
+    setProfileData({
+      full_name: user?.full_name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+    });
+    setProfileModalVisible(true);
+  };
+
+  const saveProfile = async () => {
+    setLoading(true);
+    try {
+      await api.put('/auth/profile', profileData);
+      await fetchUserProfile();
+      setProfileModalVisible(false);
+      showAlert('Başarılı', 'Profil güncellendi', 'success');
+    } catch (error) {
+      console.error('Save profile error:', error);
+      showAlert('Hata', 'Profil güncellenemedi', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -88,43 +128,67 @@ export default function SettingsScreen({ navigation }) {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Genel</Text>
-        <SettingItem
-          icon="person-outline"
-          title="Profil Düzenle"
-          onPress={() => Alert.alert('Bilgi', 'Profil düzenleme yakında eklenecek')}
-        />
-        <SettingItem
-          icon="notifications-outline"
-          title="Bildirimler"
-          subtitle="Bildirim tercihlerini yönet"
-          onPress={() => Alert.alert('Bilgi', 'Bildirim ayarları yakında eklenecek')}
-        />
-        <SettingItem
-          icon="language-outline"
-          title="Dil"
-          subtitle="Türkçe"
-          onPress={() => Alert.alert('Bilgi', 'Dil seçimi yakında eklenecek')}
-        />
+        <TouchableOpacity style={styles.settingItem} onPress={openProfileModal}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.brand + '20' }]}>
+            <Ionicons name="person-outline" size={responsiveIconSize(19)} color={colors.brand} />
+          </View>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Profil Düzenle</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={responsiveIconSize(18)} color={colors.muted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingItem} onPress={() => showAlert('Bilgi', 'Bildirim ayarları yakında eklenecek', 'info')}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.brand + '20' }]}>
+            <Ionicons name="notifications-outline" size={responsiveIconSize(19)} color={colors.brand} />
+          </View>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Bildirimler</Text>
+            <Text style={styles.settingSubtitle}>Bildirim tercihlerini yönet</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={responsiveIconSize(18)} color={colors.muted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingItem} onPress={() => showAlert('Bilgi', 'Dil seçimi yakında eklenecek', 'info')}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.brand + '20' }]}>
+            <Ionicons name="language-outline" size={responsiveIconSize(19)} color={colors.brand} />
+          </View>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Dil</Text>
+            <Text style={styles.settingSubtitle}>Türkçe</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={responsiveIconSize(18)} color={colors.muted} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Uygulama</Text>
-        <SettingItem
-          icon="information-circle-outline"
-          title="Hakkında"
-          subtitle="Okul360 v1.0.0"
-          onPress={() => Alert.alert('Okul360', 'Okul Yönetim Sistemi Mobil Uygulaması\nVersiyon 1.0.0')}
-        />
-        <SettingItem
-          icon="document-text-outline"
-          title="Gizlilik Politikası"
-          onPress={() => Alert.alert('Bilgi', 'Gizlilik politikası yakında eklenecek')}
-        />
-        <SettingItem
-          icon="help-circle-outline"
-          title="Yardım ve Destek"
-          onPress={() => Alert.alert('Bilgi', 'Yardım ve destek yakında eklenecek')}
-        />
+        <TouchableOpacity style={styles.settingItem} onPress={() => showAlert('Okul360', 'Okul Yönetim Sistemi Mobil Uygulaması\nVersiyon 1.0.0', 'info')}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.brand + '20' }]}>
+            <Ionicons name="information-circle-outline" size={responsiveIconSize(19)} color={colors.brand} />
+          </View>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Hakkında</Text>
+            <Text style={styles.settingSubtitle}>Okul360 v1.0.0</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={responsiveIconSize(18)} color={colors.muted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingItem} onPress={() => showAlert('Bilgi', 'Gizlilik politikası yakında eklenecek', 'info')}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.brand + '20' }]}>
+            <Ionicons name="document-text-outline" size={responsiveIconSize(19)} color={colors.brand} />
+          </View>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Gizlilik Politikası</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={responsiveIconSize(18)} color={colors.muted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingItem} onPress={() => showAlert('Bilgi', 'Yardım ve destek yakında eklenecek', 'info')}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.brand + '20' }]}>
+            <Ionicons name="help-circle-outline" size={responsiveIconSize(19)} color={colors.brand} />
+          </View>
+          <View style={styles.settingInfo}>
+            <Text style={styles.settingTitle}>Yardım ve Destek</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={responsiveIconSize(18)} color={colors.muted} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -135,6 +199,74 @@ export default function SettingsScreen({ navigation }) {
       </View>
     </ScrollView>
     </View>
+
+    {/* Profile Edit Modal */}
+    <Modal
+      visible={profileModalVisible}
+      animationType="slide"
+      onRequestClose={() => setProfileModalVisible(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setProfileModalVisible(false)}>
+            <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Profil Düzenle</Text>
+          <TouchableOpacity onPress={saveProfile} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator size="small" color={colors.brand} />
+            ) : (
+              <Text style={styles.modalSave}>Kaydet</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.modalContent}>
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Ad Soyad</Text>
+            <TextInput
+              style={styles.formInput}
+              value={profileData.full_name}
+              onChangeText={(text) => setProfileData({ ...profileData, full_name: text })}
+              placeholder="Adınız Soyadınız"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>E-posta</Text>
+            <TextInput
+              style={styles.formInput}
+              value={profileData.email}
+              onChangeText={(text) => setProfileData({ ...profileData, email: text })}
+              placeholder="E-posta adresiniz"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formLabel}>Telefon</Text>
+            <TextInput
+              style={styles.formInput}
+              value={profileData.phone}
+              onChangeText={(text) => setProfileData({ ...profileData, phone: text })}
+              placeholder="Telefon numaranız"
+              keyboardType="phone-pad"
+            />
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+
+    <CustomAlert
+      visible={alertConfig.visible}
+      title={alertConfig.title}
+      message={alertConfig.message}
+      type={alertConfig.type}
+      onConfirm={alertConfig.onConfirm}
+      onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+      showCancel={alertConfig.showCancel}
+    />
     </SafeAreaView>
   );
 }
@@ -185,8 +317,8 @@ const styles = StyleSheet.create({
     ...shadows.small,
   },
   avatar: {
-    width: 38,
-    height: 38,
+    width: moderateScale(36),
+    height: moderateScale(36),
     borderRadius: borderRadius.lg,
     backgroundColor: colors.brand,
     justifyContent: 'center',
@@ -229,8 +361,8 @@ const styles = StyleSheet.create({
     ...shadows.small,
   },
   iconContainer: {
-    width: 34,
-    height: 34,
+    width: moderateScale(32),
+    height: moderateScale(32),
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -266,5 +398,49 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     color: colors.danger,
     marginLeft: spacing.sm,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+    paddingBottom: 70,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.xl,
+    paddingTop: 60,
+    backgroundColor: colors.surface,
+    ...shadows.small,
+  },
+  modalTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+    color: colors.ink,
+  },
+  modalSave: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.brand,
+  },
+  modalContent: {
+    flex: 1,
+    padding: spacing.xl,
+  },
+  formGroup: {
+    marginBottom: spacing.xl,
+  },
+  formLabel: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.ink,
+    marginBottom: spacing.sm,
+  },
+  formInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    fontSize: fontSize.md,
+    ...shadows.small,
   },
 });

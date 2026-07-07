@@ -14,8 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { moderateScale, moderateVerticalScale } from 'react-native-size-matters';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale, moderateVerticalScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 export default function FinanceScreen({ navigation }) {
   const [payments, setPayments] = useState([]);
@@ -38,6 +38,25 @@ export default function FinanceScreen({ navigation }) {
   const [students, setStudents] = useState([]);
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchPayments();
@@ -121,11 +140,12 @@ export default function FinanceScreen({ navigation }) {
       } else {
         await api.post('/payments', formData);
       }
+      showAlert('Başarılı', 'Kaydedildi', 'success');
       setModalVisible(false);
       fetchPayments();
     } catch (error) {
       console.error('Save payment error:', error);
-      alert('Kaydedilemedi');
+      showAlert('Hata', 'Kaydedilemedi', 'error');
     }
   };
 
@@ -233,7 +253,7 @@ export default function FinanceScreen({ navigation }) {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={24} color={colors.ink} />
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>{editingPayment ? 'Ödeme Düzenle' : 'Yeni Ödeme'}</Text>
             <TouchableOpacity onPress={savePayment}>
@@ -319,7 +339,7 @@ export default function FinanceScreen({ navigation }) {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setReceiptVisible(false)}>
-              <Ionicons name="close" size={24} color={colors.ink} />
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Makbuz</Text>
             <TouchableOpacity onPress={() => {
@@ -337,14 +357,14 @@ export default function FinanceScreen({ navigation }) {
                 setModalVisible(true);
               }
             }}>
-              <Ionicons name="create-outline" size={24} color={colors.brand} />
+              <Ionicons name="create-outline" size={responsiveIconSize(24)} color={colors.brand} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalContent}>
             <View style={styles.receiptContainer}>
               <View style={styles.receiptHeader}>
-                <Ionicons name="receipt-outline" size={48} color={colors.brand} />
+                <Ionicons name="receipt-outline" size={responsiveIconSize(48)} color={colors.brand} />
                 <Text style={styles.receiptTitle}>Ödeme Makbuzu</Text>
               </View>
 
@@ -386,19 +406,29 @@ export default function FinanceScreen({ navigation }) {
                 <Text style={styles.receiptId}>#{selectedPayment?.id || '—'}</Text>
               </View>
 
-              <TouchableOpacity style={styles.printButton} onPress={() => alert('Makbuz yazdırılıyor...')}>
-                <Ionicons name="print-outline" size={20} color={colors.surface} />
+              <TouchableOpacity style={styles.printButton} onPress={() => showAlert('Bilgi', 'Makbuz yazdırılıyor...', 'info')}>
+                <Ionicons name="print-outline" size={responsiveIconSize(20)} color={colors.surface} />
                 <Text style={styles.printButtonText}>Yazdır</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.shareButton} onPress={() => alert('Makbuz paylaşılıyor...')}>
-                <Ionicons name="share-outline" size={20} color={colors.brand} />
+              <TouchableOpacity style={styles.shareButton} onPress={() => showAlert('Bilgi', 'Makbuz paylaşılıyor...', 'info')}>
+                <Ionicons name="share-outline" size={responsiveIconSize(20)} color={colors.brand} />
                 <Text style={styles.shareButtonText}>Paylaş</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -428,8 +458,8 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   addButton: {
-    width: 38,
-    height: 38,
+    width: moderateScale(36),
+    height: moderateScale(36),
     backgroundColor: colors.brand,
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
@@ -504,8 +534,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusDot: {
-    width: 5,
-    height: 5,
+    width: moderateScale(5),
+    height: moderateScale(5),
     borderRadius: borderRadius.round,
     marginRight: spacing.md,
   },
@@ -670,7 +700,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   receiptDivider: {
-    height: 1,
+    height: moderateVerticalScale(1),
     backgroundColor: colors.line,
     marginVertical: spacing.lg,
   },

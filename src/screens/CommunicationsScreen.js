@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale, moderateVerticalScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 export default function CommunicationsScreen({ navigation }) {
   const [announcements, setAnnouncements] = useState([]);
@@ -22,14 +23,50 @@ export default function CommunicationsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('announcements');
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: '',
     content: '',
     audience: 'ALL_PARENTS',
     channels: ['EMAIL'],
   });
+  const [templateModalVisible, setTemplateModalVisible] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [templateFormData, setTemplateFormData] = useState({
+    name: '',
+    code: '',
+    content: '',
+    channel: 'EMAIL',
+  });
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
+  const [editingNotification, setEditingNotification] = useState(null);
+  const [notificationFormData, setNotificationFormData] = useState({
+    subject: '',
+    content: '',
+    recipient: '',
+    channel: 'EMAIL',
+  });
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchCommunications();
@@ -57,14 +94,20 @@ export default function CommunicationsScreen({ navigation }) {
 
   const createAnnouncement = async () => {
     try {
-      const response = await api.post('/announcements', newAnnouncement);
-      // Send the announcement after creation
-      await api.post(`/announcements/${response.data.id}/send`);
+      if (editingAnnouncement) {
+        await api.put(`/announcements/${editingAnnouncement.id}`, newAnnouncement);
+      } else {
+        const response = await api.post('/announcements', newAnnouncement);
+        // Send the announcement after creation
+        await api.post(`/announcements/${response.data.id}/send`);
+      }
       setModalVisible(false);
+      setEditingAnnouncement(null);
       setNewAnnouncement({ title: '', content: '', audience: 'ALL_PARENTS', channels: ['EMAIL'] });
       fetchCommunications();
     } catch (error) {
       console.error('Create announcement error:', error);
+      showAlert('Hata', 'Duyuru kaydedilemedi', 'error');
     }
   };
 
@@ -74,6 +117,126 @@ export default function CommunicationsScreen({ navigation }) {
       fetchCommunications();
     } catch (error) {
       console.error('Send announcement error:', error);
+      showAlert('Hata', 'Duyuru gönderilemedi', 'error');
+    }
+  };
+
+  const deleteAnnouncement = async (id) => {
+    showAlert(
+      'Duyuruyu Sil',
+      'Bu duyuruyu silmek istediğinizden emin misiniz?',
+      'danger',
+      async () => {
+        try {
+          await api.delete(`/announcements/${id}`);
+          showAlert('Başarılı', 'Duyuru silindi', 'success');
+          fetchCommunications();
+        } catch (error) {
+          console.error('Delete announcement error:', error);
+          showAlert('Hata', 'Duyuru silinemedi', 'error');
+        }
+      },
+      true
+    );
+  };
+
+  const openEditModal = (announcement = null) => {
+    setEditingAnnouncement(announcement);
+    setNewAnnouncement(announcement || { title: '', content: '', audience: 'ALL_PARENTS', channels: ['EMAIL'] });
+    setModalVisible(true);
+  };
+
+  const saveTemplate = async () => {
+    try {
+      if (editingTemplate) {
+        await api.put(`/notifications/templates/${editingTemplate.id}`, templateFormData);
+      } else {
+        await api.post('/notifications/templates', templateFormData);
+      }
+      setTemplateModalVisible(false);
+      setEditingTemplate(null);
+      setTemplateFormData({ name: '', code: '', content: '', channel: 'EMAIL' });
+      fetchCommunications();
+    } catch (error) {
+      console.error('Save template error:', error);
+      showAlert('Hata', 'Şablon kaydedilemedi', 'error');
+    }
+  };
+
+  const deleteTemplate = async (id) => {
+    showAlert(
+      'Şablonu Sil',
+      'Bu şablonu silmek istediğinizden emin misiniz?',
+      'danger',
+      async () => {
+        try {
+          await api.delete(`/notifications/templates/${id}`);
+          showAlert('Başarılı', 'Şablon silindi', 'success');
+          fetchCommunications();
+        } catch (error) {
+          console.error('Delete template error:', error);
+          showAlert('Hata', 'Şablon silinemedi', 'error');
+        }
+      },
+      true
+    );
+  };
+
+  const openTemplateModal = (template = null) => {
+    setEditingTemplate(template);
+    setTemplateFormData(template || { name: '', code: '', content: '', channel: 'EMAIL' });
+    setTemplateModalVisible(true);
+  };
+
+  const saveNotification = async () => {
+    try {
+      if (editingNotification) {
+        await api.put(`/notifications/${editingNotification.id}`, notificationFormData);
+      } else {
+        await api.post('/notifications', notificationFormData);
+      }
+      setNotificationModalVisible(false);
+      setEditingNotification(null);
+      setNotificationFormData({ subject: '', content: '', recipient: '', channel: 'EMAIL' });
+      fetchCommunications();
+    } catch (error) {
+      console.error('Save notification error:', error);
+      showAlert('Hata', 'Bildirim kaydedilemedi', 'error');
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    showAlert(
+      'Bildirimi Sil',
+      'Bu bildirimi silmek istediğinizden emin misiniz?',
+      'danger',
+      async () => {
+        try {
+          await api.delete(`/notifications/${id}`);
+          showAlert('Başarılı', 'Bildirim silindi', 'success');
+          fetchCommunications();
+        } catch (error) {
+          console.error('Delete notification error:', error);
+          showAlert('Hata', 'Bildirim silinemedi', 'error');
+        }
+      },
+      true
+    );
+  };
+
+  const openNotificationModal = (notification = null) => {
+    setEditingNotification(notification);
+    setNotificationFormData(notification || { subject: '', content: '', recipient: '', channel: 'EMAIL' });
+    setNotificationModalVisible(true);
+  };
+
+  const retryNotification = async (id) => {
+    try {
+      await api.post(`/notifications/${id}/retry`);
+      fetchCommunications();
+    } catch (error) {
+      console.error('Retry notification error:', error);
+      showAlert('Hata', 'Bildirim tekrar gönderilemedi', 'error');
     }
   };
 
@@ -82,7 +245,7 @@ export default function CommunicationsScreen({ navigation }) {
       <View style={styles.tabContent}>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setModalVisible(true)}
+          onPress={() => openEditModal()}
         >
           <Ionicons name="add" size={responsiveIconSize(20)} color={colors.surface} />
           <Text style={styles.addButtonText}>Duyuru Oluştur</Text>
@@ -94,11 +257,19 @@ export default function CommunicationsScreen({ navigation }) {
             <View key={item.id} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{item.title}</Text>
-                <View style={[styles.statusBadge, { backgroundColor: item.status === 'SENT' ? '#e6f3ef' : '#fff3df' }]}>
-                  <Text style={[styles.statusText, { color: item.status === 'SENT' ? colors.brand : colors.warning }]}>
-                    {item.status === 'SENT' ? 'Gönderildi' : 'Taslak'}
-                  </Text>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity onPress={() => openEditModal(item)} style={styles.iconButton}>
+                    <Ionicons name="create-outline" size={responsiveIconSize(18)} color={colors.brand} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteAnnouncement(item.id)} style={styles.iconButton}>
+                    <Ionicons name="trash-outline" size={responsiveIconSize(18)} color={colors.danger} />
+                  </TouchableOpacity>
                 </View>
+              </View>
+              <View style={[styles.statusBadge, { backgroundColor: item.status === 'SENT' ? '#e6f3ef' : '#fff3df' }]}>
+                <Text style={[styles.statusText, { color: item.status === 'SENT' ? colors.brand : colors.warning }]}>
+                  {item.status === 'SENT' ? 'Gönderildi' : 'Taslak'}
+                </Text>
               </View>
               <Text style={styles.cardContent} numberOfLines={2}>{item.content}</Text>
               <View style={styles.cardFooter}>
@@ -119,6 +290,13 @@ export default function CommunicationsScreen({ navigation }) {
   const renderNotifications = () => {
     return (
       <View style={styles.tabContent}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => openNotificationModal()}
+        >
+          <Ionicons name="add" size={responsiveIconSize(20)} color={colors.surface} />
+          <Text style={styles.addButtonText}>Bildirim Oluştur</Text>
+        </TouchableOpacity>
         {notifications.length === 0 ? (
           <Text style={styles.emptyText}>Henüz bildirim hareketi yok</Text>
         ) : (
@@ -126,11 +304,24 @@ export default function CommunicationsScreen({ navigation }) {
             <View key={item.id} style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{item.subject}</Text>
-                <View style={[styles.statusBadge, { backgroundColor: item.status === 'SENT' ? '#e6f3ef' : item.status === 'FAILED' ? '#fff0ef' : '#fff3df' }]}>
-                  <Text style={[styles.statusText, { color: item.status === 'SENT' ? colors.brand : item.status === 'FAILED' ? colors.danger : colors.warning }]}>
-                    {item.status === 'SENT' ? 'Gönderildi' : item.status === 'FAILED' ? 'Başarısız' : 'Bekliyor'}
-                  </Text>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity onPress={() => openNotificationModal(item)} style={styles.iconButton}>
+                    <Ionicons name="create-outline" size={responsiveIconSize(18)} color={colors.brand} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteNotification(item.id)} style={styles.iconButton}>
+                    <Ionicons name="trash-outline" size={responsiveIconSize(18)} color={colors.danger} />
+                  </TouchableOpacity>
+                  {item.status === 'FAILED' && (
+                    <TouchableOpacity onPress={() => retryNotification(item.id)} style={styles.iconButton}>
+                      <Ionicons name="refresh-outline" size={responsiveIconSize(18)} color={colors.warning} />
+                    </TouchableOpacity>
+                  )}
                 </View>
+              </View>
+              <View style={[styles.statusBadge, { backgroundColor: item.status === 'SENT' ? '#e6f3ef' : item.status === 'FAILED' ? '#fff0ef' : '#fff3df' }]}>
+                <Text style={[styles.statusText, { color: item.status === 'SENT' ? colors.brand : item.status === 'FAILED' ? colors.danger : colors.warning }]}>
+                  {item.status === 'SENT' ? 'Gönderildi' : item.status === 'FAILED' ? 'Başarısız' : 'Bekliyor'}
+                </Text>
               </View>
               <View style={styles.cardFooter}>
                 <Text style={styles.cardMeta}>{item.channel}</Text>
@@ -145,12 +336,29 @@ export default function CommunicationsScreen({ navigation }) {
 
   const renderTemplates = () => (
     <View style={styles.tabContent}>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => openTemplateModal()}
+      >
+        <Ionicons name="add" size={responsiveIconSize(20)} color={colors.surface} />
+        <Text style={styles.addButtonText}>Şablon Oluştur</Text>
+      </TouchableOpacity>
       {templates.length === 0 ? (
         <Text style={styles.emptyText}>Henüz şablon yok</Text>
       ) : (
         templates.map((item) => (
           <View key={item.id} style={styles.card}>
-            <Text style={styles.cardTitle}>{item.name}</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>{item.name}</Text>
+              <View style={styles.cardActions}>
+                <TouchableOpacity onPress={() => openTemplateModal(item)} style={styles.iconButton}>
+                  <Ionicons name="create-outline" size={responsiveIconSize(18)} color={colors.brand} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deleteTemplate(item.id)} style={styles.iconButton}>
+                  <Ionicons name="trash-outline" size={responsiveIconSize(18)} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            </View>
             <Text style={styles.cardMeta}>{item.code}</Text>
             <Text style={styles.cardMeta}>{item.channel}</Text>
           </View>
@@ -214,7 +422,7 @@ export default function CommunicationsScreen({ navigation }) {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={24} color={colors.ink} />
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Yeni Duyuru</Text>
             <TouchableOpacity onPress={createAnnouncement}>
@@ -286,6 +494,156 @@ export default function CommunicationsScreen({ navigation }) {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Template Modal */}
+      <Modal
+        visible={templateModalVisible}
+        animationType="slide"
+        onRequestClose={() => setTemplateModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setTemplateModalVisible(false)}>
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{editingTemplate ? 'Şablon Düzenle' : 'Yeni Şablon'}</Text>
+            <TouchableOpacity onPress={saveTemplate}>
+              <Text style={styles.modalSave}>Kaydet</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Şablon Adı</Text>
+              <TextInput
+                style={styles.formInput}
+                value={templateFormData.name}
+                onChangeText={(text) => setTemplateFormData({ ...templateFormData, name: text })}
+                placeholder="Örn: Ödeme Hatırlatması"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Şablon Kodu</Text>
+              <TextInput
+                style={styles.formInput}
+                value={templateFormData.code}
+                onChangeText={(text) => setTemplateFormData({ ...templateFormData, code: text })}
+                placeholder="Örn: PAYMENT_REMINDER"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>İçerik</Text>
+              <TextInput
+                style={[styles.formInput, styles.formTextarea]}
+                value={templateFormData.content}
+                onChangeText={(text) => setTemplateFormData({ ...templateFormData, content: text })}
+                placeholder="Şablon içeriği"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Kanal</Text>
+              <View style={styles.channelButtons}>
+                {['EMAIL', 'SMS', 'WHATSAPP'].map((channel) => (
+                  <TouchableOpacity
+                    key={channel}
+                    style={[styles.channelButton, templateFormData.channel === channel && styles.selectedChannel]}
+                    onPress={() => setTemplateFormData({ ...templateFormData, channel })}
+                  >
+                    <Text style={[styles.channelText, templateFormData.channel === channel && styles.selectedChannelText]}>
+                      {channel === 'EMAIL' ? 'E-posta' : channel === 'SMS' ? 'SMS' : 'WhatsApp'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Notification Modal */}
+      <Modal
+        visible={notificationModalVisible}
+        animationType="slide"
+        onRequestClose={() => setNotificationModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setNotificationModalVisible(false)}>
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{editingNotification ? 'Bildirim Düzenle' : 'Yeni Bildirim'}</Text>
+            <TouchableOpacity onPress={saveNotification}>
+              <Text style={styles.modalSave}>Kaydet</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Konu</Text>
+              <TextInput
+                style={styles.formInput}
+                value={notificationFormData.subject}
+                onChangeText={(text) => setNotificationFormData({ ...notificationFormData, subject: text })}
+                placeholder="Bildirim konusu"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>İçerik</Text>
+              <TextInput
+                style={[styles.formInput, styles.formTextarea]}
+                value={notificationFormData.content}
+                onChangeText={(text) => setNotificationFormData({ ...notificationFormData, content: text })}
+                placeholder="Bildirim içeriği"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Alıcı</Text>
+              <TextInput
+                style={styles.formInput}
+                value={notificationFormData.recipient}
+                onChangeText={(text) => setNotificationFormData({ ...notificationFormData, recipient: text })}
+                placeholder="E-posta veya telefon numarası"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Kanal</Text>
+              <View style={styles.channelButtons}>
+                {['EMAIL', 'SMS', 'WHATSAPP'].map((channel) => (
+                  <TouchableOpacity
+                    key={channel}
+                    style={[styles.channelButton, notificationFormData.channel === channel && styles.selectedChannel]}
+                    onPress={() => setNotificationFormData({ ...notificationFormData, channel })}
+                  >
+                    <Text style={[styles.channelText, notificationFormData.channel === channel && styles.selectedChannelText]}>
+                      {channel === 'EMAIL' ? 'E-posta' : channel === 'SMS' ? 'SMS' : 'WhatsApp'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -385,6 +743,13 @@ const styles = StyleSheet.create({
     color: colors.ink,
     flex: 1,
   },
+  cardActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  iconButton: {
+    padding: spacing.sm,
+  },
   statusBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -464,7 +829,7 @@ const styles = StyleSheet.create({
     ...shadows.small,
   },
   formTextarea: {
-    minHeight: 100,
+    minHeight: moderateVerticalScale(100),
     textAlignVertical: 'top',
   },
   optionButtons: {

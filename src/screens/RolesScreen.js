@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale, moderateVerticalScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 export default function RolesScreen({ navigation }) {
   const [roles, setRoles] = useState([]);
@@ -22,9 +23,29 @@ export default function RolesScreen({ navigation }) {
   const [assignedPermissions, setAssignedPermissions] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingRole, setEditingRole] = useState(null);
   const [newRole, setNewRole] = useState({ name: '', slug: '', description: '' });
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchRoles();
@@ -93,23 +114,57 @@ export default function RolesScreen({ navigation }) {
       await api.put(`/roles/${selectedRole.id}/permissions`, {
         permission_ids: [...assignedPermissions],
       });
-      alert('Yetkiler güncellendi');
+      showAlert('Başarılı', 'Yetkiler güncellendi', 'success');
     } catch (error) {
       console.error('Save permissions error:', error);
-      alert('Kaydedilemedi');
+      showAlert('Hata', 'Kaydedilemedi', 'error');
     }
   };
 
   const createRole = async () => {
     try {
-      await api.post('/roles', newRole);
+      if (editingRole) {
+        await api.put(`/roles/${editingRole.id}`, newRole);
+      } else {
+        await api.post('/roles', newRole);
+      }
       setModalVisible(false);
+      setEditingRole(null);
       setNewRole({ name: '', slug: '', description: '' });
       fetchRoles();
     } catch (error) {
       console.error('Create role error:', error);
-      alert('Rol oluşturulamadı');
+      showAlert('Hata', 'Rol kaydedilemedi', 'error');
     }
+  };
+
+  const deleteRole = async (role) => {
+    showAlert(
+      'Rolü Sil',
+      'Bu rolü silmek istediğinizden emin misiniz?',
+      'danger',
+      async () => {
+        try {
+          await api.delete(`/roles/${role.id}`);
+          if (selectedRole?.id === role.id) {
+            setSelectedRole(null);
+            setAssignedPermissions(new Set());
+          }
+          showAlert('Başarılı', 'Rol silindi', 'success');
+          fetchRoles();
+        } catch (error) {
+          console.error('Delete role error:', error);
+          showAlert('Hata', 'Rol silinemedi', 'error');
+        }
+      },
+      true
+    );
+  };
+
+  const openEditModal = (role = null) => {
+    setEditingRole(role);
+    setNewRole(role || { name: '', slug: '', description: '' });
+    setModalVisible(true);
   };
 
   const groupedPermissions = permissions.reduce((acc, permission) => {
@@ -138,7 +193,7 @@ export default function RolesScreen({ navigation }) {
         <View style={styles.actionBar}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => setModalVisible(true)}
+            onPress={() => openEditModal()}
           >
             <Ionicons name="add" size={responsiveIconSize(18)} color={colors.surface} />
             <Text style={styles.actionButtonText}>Rol Ekle</Text>
@@ -160,20 +215,29 @@ export default function RolesScreen({ navigation }) {
           <View style={styles.rolesList}>
             <Text style={styles.sectionTitle}>Roller</Text>
             {roles.map((role) => (
-              <TouchableOpacity
-                key={role.id}
-                style={[styles.roleItem, selectedRole?.id === role.id && styles.selectedRole]}
-                onPress={() => setSelectedRole(role)}
-              >
-                <View style={styles.roleIcon}>
-                  <Ionicons name="shield-checkmark-outline" size={responsiveIconSize(20)} color={colors.brand} />
+              <View key={role.id} style={styles.roleItemContainer}>
+                <TouchableOpacity
+                  style={[styles.roleItem, selectedRole?.id === role.id && styles.selectedRole]}
+                  onPress={() => setSelectedRole(role)}
+                >
+                  <View style={styles.roleIcon}>
+                    <Ionicons name="shield-checkmark-outline" size={responsiveIconSize(20)} color={colors.brand} />
+                  </View>
+                  <View style={styles.roleInfo}>
+                    <Text style={styles.roleName}>{role.name}</Text>
+                    <Text style={styles.roleSlug}>{role.slug}</Text>
+                  </View>
+                </TouchableOpacity>
+                <View style={styles.roleActions}>
+                  <TouchableOpacity onPress={() => openEditModal(role)} style={styles.iconButton}>
+                    <Ionicons name="create-outline" size={responsiveIconSize(18)} color={colors.brand} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteRole(role)} style={styles.iconButton}>
+                    <Ionicons name="trash-outline" size={responsiveIconSize(18)} color={colors.danger} />
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.roleInfo}>
-                  <Text style={styles.roleName}>{role.name}</Text>
-                  <Text style={styles.roleSlug}>{role.slug}</Text>
               </View>
-            </TouchableOpacity>
-          ))}
+            ))}
         </View>
 
         <View style={styles.permissionsSection}>
@@ -191,7 +255,7 @@ export default function RolesScreen({ navigation }) {
                     >
                       <Text style={styles.permissionName}>{permission.name}</Text>
                       {assignedPermissions.has(permission.id) && (
-                        <Ionicons name="checkmark" size={18} color={colors.brand} />
+                        <Ionicons name="checkmark" size={responsiveIconSize(18)} color={colors.brand} />
                       )}
                     </TouchableOpacity>
                   ))}
@@ -257,6 +321,16 @@ export default function RolesScreen({ navigation }) {
           </ScrollView>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -320,7 +394,7 @@ const styles = StyleSheet.create({
   },
   rolesList: {
     flex: 1,
-    maxWidth: 200,
+    maxWidth: moderateScale(200),
   },
   sectionTitle: {
     fontSize: fontSize.md,
@@ -344,8 +418,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#e6f3ef',
   },
   roleIcon: {
-    width: 36,
-    height: 36,
+    width: moderateScale(34),
+    height: moderateScale(34),
     borderRadius: borderRadius.lg,
     backgroundColor: '#e6f3ef',
     justifyContent: 'center',
@@ -364,6 +438,19 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.muted,
     marginTop: 2,
+  },
+  roleItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  roleActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  iconButton: {
+    padding: spacing.xs,
   },
   permissionsSection: {
     flex: 2,
@@ -452,7 +539,7 @@ const styles = StyleSheet.create({
     ...shadows.small,
   },
   formTextarea: {
-    minHeight: 100,
+    minHeight: moderateVerticalScale(100),
     textAlignVertical: 'top',
   },
 });

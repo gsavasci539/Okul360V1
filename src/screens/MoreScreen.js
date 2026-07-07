@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,20 +9,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { moderateScale, moderateVerticalScale } from 'react-native-size-matters';
-import {
-  getColumnCount,
-  getCardWidth,
-  getBottomPadding,
-  getTabBarHeight,
-  getResponsiveContainerStyle,
-  responsiveIconSize,
-  useResponsive,
-} from '../utils/responsive';
+import { moderateScale, moderateVerticalScale, getColumnCount, getCardWidth, getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
 
 export default function MoreScreen({ navigation }) {
   const { columnCount, tabBarHeight, deviceType } = useResponsive();
-  const cardWidth = getCardWidth(columnCount, spacing.lg);
+  const cardWidth = getCardWidth(columnCount, spacing.lg, spacing.lg);
   const bottomPadding = getBottomPadding(tabBarHeight);
 
   const menuItems = useMemo(() => [
@@ -84,19 +75,6 @@ export default function MoreScreen({ navigation }) {
     },
   ], []);
 
-  const MenuItem = useCallback(({ item }) => (
-    <TouchableOpacity
-      style={[styles.menuItem, { width: cardWidth }]}
-      onPress={() => navigation.navigate(item.screen)}
-    >
-      <View style={[styles.menuIcon, { backgroundColor: item.bg }]}>
-        <Ionicons name={item.icon} size={responsiveIconSize(24)} color={item.color} />
-      </View>
-      <Text style={styles.menuTitle}>{item.title}</Text>
-      <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-    </TouchableOpacity>
-  ), [navigation, cardWidth]);
-
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView
@@ -112,7 +90,17 @@ export default function MoreScreen({ navigation }) {
 
           <View style={styles.menuGrid}>
             {menuItems.map((item, index) => (
-              <MenuItem key={index} item={item} />
+              <TouchableOpacity
+                key={index}
+                style={[styles.menuItem, { width: cardWidth }]}
+                onPress={() => navigation.navigate(item.screen)}
+              >
+                <View style={[styles.menuIcon, { backgroundColor: item.bg }]}>
+                  <Ionicons name={item.icon} size={responsiveIconSize(24)} color={item.color} />
+                </View>
+                <Text style={styles.menuTitle}>{item.title}</Text>
+                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+              </TouchableOpacity>
             ))}
           </View>
         </View>

@@ -1,5 +1,21 @@
 // Design system matching SchoolManagement-master frontend
-import { moderateScale, verticalScale as moderateVerticalScale } from 'react-native-size-matters';
+import { moderateScale, verticalScale as moderateVerticalScale, scale } from 'react-native-size-matters';
+import { PixelRatio, Dimensions } from 'react-native';
+
+const pixelRatio = PixelRatio.get();
+const fontScale = PixelRatio.getFontScale();
+const { width } = Dimensions.get('window');
+
+// Adjust scale factor based on screen width and pixel density
+const getScaleFactor = () => {
+  if (width >= 428) return 1.05; // Samsung A26, iPhone Pro Max
+  if (width >= 414) return 1.0;  // iPhone 14 Pro Max
+  if (width >= 390) return 0.95; // iPhone 14
+  if (width >= 375) return 0.9;  // Standard phones
+  return 0.85; // Small phones
+};
+
+const scaleFactor = getScaleFactor();
 
 export const colors = {
   // Primary colors
@@ -44,38 +60,38 @@ export const colors = {
 };
 
 export const spacing = {
-  xs: moderateScale(4),
-  sm: moderateScale(8),
-  md: moderateScale(12),
-  lg: moderateScale(16),
-  xl: moderateScale(20),
-  xxl: moderateScale(24),
-  xxxl: moderateScale(30),
+  xs: moderateScale(4 * scaleFactor),
+  sm: moderateScale(8 * scaleFactor),
+  md: moderateScale(12 * scaleFactor),
+  lg: moderateScale(16 * scaleFactor),
+  xl: moderateScale(20 * scaleFactor),
+  xxl: moderateScale(24 * scaleFactor),
+  xxxl: moderateScale(30 * scaleFactor),
 };
 
 export const borderRadius = {
-  sm: moderateScale(9),
-  md: moderateScale(11),
-  lg: moderateScale(12),
-  xl: moderateScale(13),
-  xxl: moderateScale(16),
-  xxxl: moderateScale(18),
+  sm: moderateScale(9 * scaleFactor),
+  md: moderateScale(11 * scaleFactor),
+  lg: moderateScale(12 * scaleFactor),
+  xl: moderateScale(13 * scaleFactor),
+  xxl: moderateScale(16 * scaleFactor),
+  xxxl: moderateScale(18 * scaleFactor),
   round: 99,
 };
 
 export const fontSize = {
-  xs: moderateScale(10),
-  sm: moderateScale(11),
-  base: moderateScale(12),
-  md: moderateScale(13),
-  lg: moderateScale(14),
-  xl: moderateScale(15),
-  xxl: moderateScale(16),
-  xxxl: moderateScale(18),
-  huge: moderateScale(20),
-  massive: moderateScale(25),
-  giant: moderateScale(27),
-  colossal: moderateScale(34),
+  xs: moderateScale(10 * scaleFactor / fontScale),
+  sm: moderateScale(11 * scaleFactor / fontScale),
+  base: moderateScale(12 * scaleFactor / fontScale),
+  md: moderateScale(13 * scaleFactor / fontScale),
+  lg: moderateScale(14 * scaleFactor / fontScale),
+  xl: moderateScale(15 * scaleFactor / fontScale),
+  xxl: moderateScale(16 * scaleFactor / fontScale),
+  xxxl: moderateScale(18 * scaleFactor / fontScale),
+  huge: moderateScale(20 * scaleFactor / fontScale),
+  massive: moderateScale(25 * scaleFactor / fontScale),
+  giant: moderateScale(27 * scaleFactor / fontScale),
+  colossal: moderateScale(34 * scaleFactor / fontScale),
 };
 
 export const fontWeight = {
@@ -89,23 +105,23 @@ export const fontWeight = {
 export const shadows = {
   small: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: moderateScale(2) },
+    shadowOffset: { width: 0, height: moderateScale(2 * scaleFactor) },
     shadowOpacity: 0.05,
-    shadowRadius: moderateScale(4),
+    shadowRadius: moderateScale(4 * scaleFactor),
     elevation: 2,
   },
   medium: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: moderateScale(4) },
+    shadowOffset: { width: 0, height: moderateScale(4 * scaleFactor) },
     shadowOpacity: 0.08,
-    shadowRadius: moderateScale(16),
+    shadowRadius: moderateScale(16 * scaleFactor),
     elevation: 4,
   },
   large: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: moderateScale(16) },
+    shadowOffset: { width: 0, height: moderateScale(16 * scaleFactor) },
     shadowOpacity: 0.08,
-    shadowRadius: moderateScale(50),
+    shadowRadius: moderateScale(50 * scaleFactor),
     elevation: 8,
   },
 };
@@ -120,7 +136,7 @@ export const commonStyles = {
   },
   button: {
     borderRadius: borderRadius.lg,
-    minHeight: moderateVerticalScale(42),
+    minHeight: moderateVerticalScale(42 * scaleFactor),
     paddingHorizontal: spacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -141,7 +157,7 @@ export const commonStyles = {
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    minHeight: moderateVerticalScale(43),
+    minHeight: moderateVerticalScale(43 * scaleFactor),
   },
   statCard: {
     backgroundColor: colors.surface,

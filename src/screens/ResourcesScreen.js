@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale, moderateVerticalScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 const resourceTypes = [
   { key: 'branches', label: 'Şubeler', endpoint: '/branches' },
@@ -29,6 +30,25 @@ export default function ResourcesScreen({ navigation }) {
   const [formData, setFormData] = useState({ name: '', code: '', description: '' });
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchResources();
@@ -63,21 +83,33 @@ export default function ResourcesScreen({ navigation }) {
       } else {
         await api.post(resourceType.endpoint, formData);
       }
+      showAlert('Başarılı', 'Kaydedildi', 'success');
       setModalVisible(false);
       fetchResources();
     } catch (error) {
       console.error('Save error:', error);
+      showAlert('Hata', 'Kaydedilemedi', 'error');
     }
   };
 
   const deleteResource = async (id) => {
     const resourceType = resourceTypes.find(r => r.key === activeType);
-    try {
-      await api.delete(`${resourceType.endpoint}/${id}`);
-      fetchResources();
-    } catch (error) {
-      console.error('Delete error:', error);
-    }
+    showAlert(
+      'Sil',
+      'Bu kaydı silmek istediğinizden emin misiniz?',
+      'danger',
+      async () => {
+        try {
+          await api.delete(`${resourceType.endpoint}/${id}`);
+          showAlert('Başarılı', 'Silindi', 'success');
+          fetchResources();
+        } catch (error) {
+          console.error('Delete error:', error);
+          showAlert('Hata', 'Silinemedi', 'error');
+        }
+      },
+      true
+    );
   };
 
   if (loading) {
@@ -198,6 +230,16 @@ export default function ResourcesScreen({ navigation }) {
           </ScrollView>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
       </View>
     </SafeAreaView>
   );
@@ -362,7 +404,7 @@ const styles = StyleSheet.create({
     ...shadows.small,
   },
   formTextarea: {
-    minHeight: 100,
+    minHeight: moderateVerticalScale(100),
     textAlignVertical: 'top',
   },
 });

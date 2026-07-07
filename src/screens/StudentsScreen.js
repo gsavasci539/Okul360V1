@@ -14,7 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../config/api';
 import { colors, spacing, borderRadius, fontSize, fontWeight, shadows } from '../config/theme';
-import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive } from '../utils/responsive';
+import { getBottomPadding, getTabBarHeight, getResponsiveContainerStyle, responsiveIconSize, useResponsive, moderateScale, moderateVerticalScale } from '../utils/responsive';
+import CustomAlert from '../components/CustomAlert';
 
 export default function StudentsScreen({ navigation }) {
   const [students, setStudents] = useState([]);
@@ -33,6 +34,25 @@ export default function StudentsScreen({ navigation }) {
   const [classes, setClasses] = useState([]);
   const { tabBarHeight } = useResponsive();
   const bottomPadding = getBottomPadding(tabBarHeight);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null,
+    showCancel: false,
+  });
+
+  const showAlert = (title, message, type = 'info', onConfirm = null, showCancel = false) => {
+    setAlertConfig({
+      visible: true,
+      title: title || '',
+      message: message || '',
+      type,
+      onConfirm: onConfirm || (() => setAlertConfig(prev => ({ ...prev, visible: false }))),
+      showCancel,
+    });
+  };
 
   useEffect(() => {
     fetchStudents();
@@ -88,23 +108,33 @@ export default function StudentsScreen({ navigation }) {
       } else {
         await api.post('/students', formData);
       }
+      showAlert('Başarılı', 'Kaydedildi', 'success');
       setModalVisible(false);
       fetchStudents();
     } catch (error) {
       console.error('Save student error:', error);
-      alert('Kaydedilemedi');
+      showAlert('Hata', 'Kaydedilemedi', 'error');
     }
   };
 
   const deleteStudent = async () => {
-    try {
-      await api.delete(`/students/${editingStudent.id}`);
-      setModalVisible(false);
-      fetchStudents();
-    } catch (error) {
-      console.error('Delete student error:', error);
-      alert('Silinemedi');
-    }
+    showAlert(
+      'Sil',
+      'Bu öğrenciyi silmek istediğinizden emin misiniz?',
+      'danger',
+      async () => {
+        try {
+          await api.delete(`/students/${editingStudent.id}`);
+          showAlert('Başarılı', 'Silindi', 'success');
+          setModalVisible(false);
+          fetchStudents();
+        } catch (error) {
+          console.error('Delete student error:', error);
+          showAlert('Hata', 'Silinemedi', 'error');
+        }
+      },
+      true
+    );
   };
 
   const renderStudent = ({ item }) => (
@@ -199,7 +229,7 @@ export default function StudentsScreen({ navigation }) {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={24} color={colors.ink} />
+              <Ionicons name="close" size={responsiveIconSize(24)} color={colors.ink} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>{editingStudent ? 'Öğrenci Düzenle' : 'Yeni Öğrenci'}</Text>
             <TouchableOpacity onPress={saveStudent}>
@@ -271,13 +301,23 @@ export default function StudentsScreen({ navigation }) {
 
             {editingStudent && (
               <TouchableOpacity style={styles.deleteButton} onPress={deleteStudent}>
-                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                <Ionicons name="trash-outline" size={responsiveIconSize(20)} color={colors.danger} />
                 <Text style={styles.deleteButtonText}>Öğrenciyi Sil</Text>
               </TouchableOpacity>
             )}
           </ScrollView>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onConfirm={alertConfig.onConfirm}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        showCancel={alertConfig.showCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -307,8 +347,8 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   addButton: {
-    width: 38,
-    height: 38,
+    width: moderateScale(36),
+    height: moderateScale(36),
     backgroundColor: colors.brand,
     borderRadius: borderRadius.lg,
     justifyContent: 'center',
@@ -322,7 +362,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.lg,
-    height: 40,
+    height: moderateVerticalScale(40),
     borderWidth: 1,
     borderColor: colors.line,
   },
@@ -354,8 +394,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 38,
-    height: 38,
+    width: moderateScale(36),
+    height: moderateScale(36),
     borderRadius: borderRadius.lg,
     backgroundColor: colors.brand,
     justifyContent: 'center',
@@ -378,12 +418,12 @@ const styles = StyleSheet.create({
   studentEmail: {
     fontSize: fontSize.sm,
     color: colors.muted,
-    marginTop: 3,
+    marginTop: moderateScale(3),
   },
   studentClass: {
     fontSize: fontSize.xs,
     color: colors.text.light,
-    marginTop: 2,
+    marginTop: moderateScale(2),
   },
   emptyContainer: {
     alignItems: 'center',
